@@ -1,5 +1,7 @@
-package com.example.library;
+package com.example.library.controller;
 
+import com.example.library.model.Book;
+import com.example.library.repository.BookRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.MessageSource;
 import org.springframework.context.i18n.LocaleContextHolder;
@@ -8,23 +10,15 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.List;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/books")
 public class BookController {
 
-    private final Map<Long, Book> bookRepository = new HashMap<>();
-    private final AtomicLong idCounter = new AtomicLong();
-    private final MessageSource messageSource;
-
-    @Autowired
-    public BookController(MessageSource messageSource) {
-        this.messageSource = messageSource;
-    }
+    private  final BookRepository bookRepository;
+    private  final MessageSource messageSource;
 
     @PostMapping({"", "/"})
     public ResponseEntity<?> addBook(@Valid @RequestBody Book book) {
@@ -32,32 +26,29 @@ public class BookController {
             String msg = messageSource.getMessage("BOOK_PRICE_NEGATIVE", null, LocaleContextHolder.getLocale());
             return ResponseEntity.badRequest().body(msg);
         }
-        long id = idCounter.incrementAndGet();
-        book.setId(id);
-        bookRepository.put(id, book);
-        return new ResponseEntity<>(book, HttpStatus.CREATED);
+        Book savedBook = bookRepository.save(book);
+        return new ResponseEntity<>(savedBook, HttpStatus.CREATED);
     }
 
     @GetMapping({"", "/"})
-    public Collection<Book> getAllBooks() {
-        return bookRepository.values();
+    public List<Book> getAllBooks() {
+        return bookRepository.findAll();
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<?> getBookById(@PathVariable Long id) {
-        Book book = bookRepository.get(id);
-        if (book == null) {
-
+        Optional<Book> book = bookRepository.findById(id);
+        if (book.isEmpty()) {
             String msg = messageSource.getMessage("BOOK_NOT_FOUND", null, LocaleContextHolder.getLocale());
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(msg);
         }
-        return ResponseEntity.ok(book);
+        return ResponseEntity.ok(book.get());
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<?> updateBook(@PathVariable Long id, @Valid @RequestBody Book updatedBook) {
-        Book existingBook = bookRepository.get(id);
-        if (existingBook == null) {
+        Optional<Book> existingBook = bookRepository.findById(id);
+        if (existingBook.isEmpty()) {
             String msg = messageSource.getMessage("BOOK_NOT_FOUND", null, LocaleContextHolder.getLocale());
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(msg);
         }
@@ -66,17 +57,23 @@ public class BookController {
             return ResponseEntity.badRequest().body(msg);
         }
         updatedBook.setId(id);
-        bookRepository.put(id, updatedBook);
-        return ResponseEntity.ok(updatedBook);
+        Book savedBook = bookRepository.save(updatedBook);
+        return ResponseEntity.ok(savedBook);
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteBook(@PathVariable Long id) {
-        Book removedBook = bookRepository.remove(id);
-        if (removedBook == null) {
+        if (!bookRepository.existsById(id)) {
             String msg = messageSource.getMessage("BOOK_NOT_FOUND", null, LocaleContextHolder.getLocale());
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(msg);
         }
+        bookRepository.deleteById(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @Autowired
+    public BookController(BookRepository bookRepository, MessageSource messageSource) {
+        this.bookRepository = bookRepository;
+        this.messageSource = messageSource;
     }
 }
