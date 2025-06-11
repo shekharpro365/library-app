@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: library-app-deployment
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: library-app
+  template:
+    metadata:
+      labels:
+        app: library-app
+    spec:
+      containers:
+        - name: library-app
+          image: dockandgo/library-app-cloud:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: APP_ENV
+              valueFrom:
+                configMapKeyRef:
+                  name: library-app-config
+                  key: APP_ENV
